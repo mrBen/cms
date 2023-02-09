@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
+	"log"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -17,6 +19,9 @@ type Episode struct {
 
 func NewEpisode(filename string) *Episode {
 	match := numbering.FindStringSubmatch(filepath.Base(filename))
+	if match == nil {
+		return nil
+	}
 	season, _ := strconv.Atoi(match[1])
 	number, _ := strconv.Atoi(match[2])
 
@@ -29,14 +34,38 @@ func NewEpisode(filename string) *Episode {
 
 func main() {
 	// if len(os.Args) < 2 {
-	// 	fmt.Println("please specify a folder")
+	// 	log.Fatal("please specify a folder")
 	// }
 
 	// folder := os.Args[1]
-	folder := `~/Downloads/Torrents/The.Peripheral.S01E10.REPACK.720p.WEB.x265-MiNX\[TGx]/`
+	folder, _ := filepath.Abs(`~/Downloads/Torrents`)
+
+	videos := listVideos(folder)
 
 	episodes := make(map[string][]Episode)
-	episodes["hello"] = append(episodes["hello"], *NewEpisode(folder))
+	for _, video := range videos {
+		log.Println(video)
+		episode := NewEpisode(video)
+		if episode == nil {
+			log.Fatal("not a series episode")
+		}
+		episodes["hello"] = append(episodes["hello"], *episode)
+	}
 
 	fmt.Println(episodes)
+}
+
+func listVideos(folder string) []string {
+	videos := make([]string, 0)
+	err := filepath.WalkDir(folder, func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		videos = append(videos, path)
+		return nil
+	})
+	if err != nil {
+		return nil
+	}
+	return videos
 }
