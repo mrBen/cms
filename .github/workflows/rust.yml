@@ -1,0 +1,65 @@
+---
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
+
+  linux-release:
+
+    needs: [ build ]
+
+    if: startsWith(github.ref, 'refs/tags/')
+
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --release
+    - name: Rename binary
+      run: mv target/release/cms cms-${{ github.ref_name }}-linux
+    - name: Upload as release asset
+      uses: softprops/action-gh-release@v1
+      with:
+        files: cms-${{ github.ref_name }}-linux
+
+  windows-release:
+
+    needs: [ build ]
+
+    if: startsWith(github.ref, 'refs/tags/')
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --release
+    - name: Rename binary
+      run: move target/release/cms.exe cms-${{ github.ref_name }}-winodws.exe
+    - name: Upload as release asset
+      uses: softprops/action-gh-release@v1
+      with:
+        files: cms-${{ github.ref_name }}-windows.exe
