@@ -65,7 +65,9 @@ fn main() -> Result<(), Error> {
         }
     }
 
-    println!("{:#?}", episodes);
+    for (show_name, episodes) in episodes {
+        organize(show_name, episodes)
+    }
 
     Ok(())
 }
@@ -88,4 +90,12 @@ fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
     }
 
     videos
+}
+
+fn organize(show_name: &str, mut episodes: Vec<Episode>) {
+    println!();
+    episodes.sort_by_key(|e| (e.season, e.number));
+    for episode in episodes {
+        println!("{}", episode.path.display());
+    }
 }
