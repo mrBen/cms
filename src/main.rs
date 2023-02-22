@@ -1,8 +1,10 @@
 use clap::Parser;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::io::prelude::*;
 use std::{
     collections::HashMap,
+    io,
     path::{Path, PathBuf},
 };
 use tmdb_async::Client;
@@ -107,9 +109,21 @@ async fn organize(show_name: &str, mut episodes: Vec<Episode>, root: &Path, tmdb
     }
     if let Some(show) = choose_show(show_name, tmdb).await {
         for episode in episodes {
-            store(episode, show);
+            store(episode, show, tmdb).await;
         }
     }
+}
+
+/// Mimic Python's `input(prompt)`.
+fn input(prompt: &str) -> io::Result<String> {
+    print!("{}", prompt);
+    io::stdout().flush()?;
+    io::stdin()
+        .lock()
+        .lines()
+        .next()
+        .unwrap()
+        .map(|x| x.trim_end().to_owned())
 }
 
 /// Ask user which show the videos belongs.
@@ -121,7 +135,6 @@ async fn choose_show(show_name: &str, tmdb: &Client) -> Option<u32> {
         .trim()
         .to_owned();
 
-    // while True:
     println!();
     let mut shows: Vec<u32> = Vec::new();
     let result = tmdb
@@ -131,15 +144,24 @@ async fn choose_show(show_name: &str, tmdb: &Client) -> Option<u32> {
     for (i, show) in result.results.iter().enumerate() {
         let year = show.first_air_date;
         let poster = show.poster_path.as_ref().expect("no poster");
-        println!("{}. {} ({}) {}", i + 1, show.original_name, year, poster);
+        println!(
+            "{}. {} ({}) https://image.tmdb.org/t/p/w500{}",
+            i + 1,
+            show.original_name,
+            year,
+            poster
+        );
         shows.push(show.id);
     }
-    // end while
-
-    None
+    let choice = input("\nQuel Série correspond ? ").unwrap();
+    if choice == "skip" {
+        None
+    } else {
+        Some(shows[choice.parse::<usize>().unwrap() - 1])
+    }
 }
 
 /// Copy an episode file to it's correct location.
-fn store(episode: Episode, show: u32) {
-    {}
+async fn store(episode: Episode, show: u32, tmdb: &Client) {
+    println!("{:?}", tmdb.tv_by_id(show, false, false).await.unwrap());
 }
