@@ -13,6 +13,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
 
 jobs:
   build:
