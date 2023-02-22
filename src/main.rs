@@ -5,12 +5,14 @@ use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
+use tmdb_async::Client;
 use walkdir::{Error, WalkDir};
 
 lazy_static! {
     static ref NUMBERING: Regex = Regex::new(r"[Ss](\d+)[Ee](\d+)").unwrap();
 }
 
+/// Store an episode video file.
 #[derive(Debug)]
 struct Episode {
     season: i32,
@@ -38,7 +40,8 @@ struct Cli {
     folder: PathBuf,
 }
 
-fn main() -> Result<(), Error> {
+#[tokio::main]
+async fn main() -> Result<(), Error> {
     let args = Cli::parse();
 
     let videos = list_videos(&args.folder);
@@ -65,13 +68,16 @@ fn main() -> Result<(), Error> {
         }
     }
 
+    let tmdb = Client::new(env!("TMDB_API_KEY").to_string());
+
     for (show_name, episodes) in episodes {
-        organize(show_name, episodes)
+        organize(show_name, episodes, &args.folder, &tmdb).await;
     }
 
     Ok(())
 }
 
+/// Recursively list all video files in a directory.
 fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
     let mut videos = Vec::new();
 
@@ -92,10 +98,48 @@ fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
     videos
 }
 
-fn organize(show_name: &str, mut episodes: Vec<Episode>) {
+/// Move a show (list of videos) to proper location.
+async fn organize(show_name: &str, mut episodes: Vec<Episode>, root: &Path, tmdb: &Client) {
     println!();
     episodes.sort_by_key(|e| (e.season, e.number));
-    for episode in episodes {
-        println!("{}", episode.path.display());
+    for episode in &episodes {
+        println!("{}", episode.path.strip_prefix(&root).unwrap().display());
     }
+    if let Some(show) = choose_show(show_name, tmdb).await {
+        for episode in episodes {
+            store(episode, show);
+        }
+    }
+}
+
+/// Ask user which show the videos belongs.
+async fn choose_show(show_name: &str, tmdb: &Client) -> Option<u32> {
+    let query = show_name
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { ' ' })
+        .collect::<String>()
+        .trim()
+        .to_owned();
+
+    // while True:
+    println!();
+    let mut shows: Vec<u32> = Vec::new();
+    let result = tmdb
+        .tv_search(&query, None)
+        .await
+        .expect("API called failed");
+    for (i, show) in result.results.iter().enumerate() {
+        let year = show.first_air_date;
+        let poster = show.poster_path.as_ref().expect("no poster");
+        println!("{}. {} ({}) {}", i + 1, show.original_name, year, poster);
+        shows.push(show.id);
+    }
+    // end while
+
+    None
+}
+
+/// Copy an episode file to it's correct location.
+fn store(episode: Episode, show: u32) {
+    {}
 }
