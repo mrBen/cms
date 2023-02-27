@@ -9,10 +9,13 @@ use std::{
 };
 use tmdb_async::Client;
 use walkdir::{Error, WalkDir};
+mod tmdb;
 
 lazy_static! {
     static ref NUMBERING: Regex = Regex::new(r"[Ss](\d+)[Ee](\d+)").unwrap();
 }
+
+const TMDB_API_KEY: &str = env!("TMDB_API_KEY");
 
 /// Store an episode video file.
 #[derive(Debug)]
@@ -70,7 +73,7 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    let tmdb = Client::new(env!("TMDB_API_KEY").to_string());
+    let tmdb = Client::new(TMDB_API_KEY.to_string());
 
     for (show_name, episodes) in episodes {
         organize(show_name, episodes, &args.folder, &tmdb).await;
@@ -109,7 +112,7 @@ async fn organize(show_name: &str, mut episodes: Vec<Episode>, root: &Path, tmdb
     }
     if let Some(show) = choose_show(show_name, tmdb).await {
         for episode in episodes {
-            store(episode, show, tmdb).await;
+            store(episode, show).await;
         }
     }
 }
@@ -162,6 +165,10 @@ async fn choose_show(show_name: &str, tmdb: &Client) -> Option<u32> {
 }
 
 /// Copy an episode file to it's correct location.
-async fn store(episode: Episode, show: u32, tmdb: &Client) {
-    println!("{:?}", tmdb.tv_by_id(show, false, false).await.unwrap());
+async fn store(episode: Episode, show: u32) {
+    // println!("{:?}", tmdb.tv_by_id(show, false, false).await.unwrap());
+    println!(
+        "{:?}",
+        tmdb::get_episode(show, episode.season, episode.number).await
+    );
 }

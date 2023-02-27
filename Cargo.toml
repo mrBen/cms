@@ -6,9 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.1.4", features = ["derive"] }
-lazy_static = "1.4.0"
-regex = "1.7.1"
-tmdb-async = "0.6.2"
-tokio = { version = "1.25.0", features = ["macros", "rt-multi-thread"] }
-walkdir = "2.3.2"
+clap = { version = "4.1", features = ["derive"] }
+lazy_static = "1.4"
+regex = "1.7"
+reqwest = { version = "0.11", features = ["json"] }
+tmdb-async = "0.6"
+tokio = { version = "1.25", features = ["full", "macros", "rt-multi-thread"] }
+walkdir = "2.3"
