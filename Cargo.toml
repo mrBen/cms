@@ -10,6 +10,7 @@ clap = { version = "4.1", features = ["derive"] }
 lazy_static = "1.4"
 regex = "1.7"
 reqwest = { version = "0.11", features = ["json"] }
+serde = "1.0"
 tmdb-async = "0.6"
 tokio = { version = "1.25", features = ["full", "macros", "rt-multi-thread"] }
 walkdir = "2.3"
