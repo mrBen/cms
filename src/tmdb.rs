@@ -26,17 +26,7 @@ pub async fn get_episode(
 
 #[derive(Deserialize, Debug)]
 pub struct Episode {
-    crew: Vec<Crew>,
-    episode_number: i32,
-    name: String,
-    id: i32,
-    season_number: i32,
-    still_path: Option<String>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Crew {
-    // id: i32,
-    name: String,
-    job: String,
+    pub episode_number: i32,
+    pub name: String,
+    pub season_number: i32,
 }

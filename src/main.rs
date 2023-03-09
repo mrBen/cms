@@ -1,6 +1,8 @@
 use clap::Parser;
+use dirs;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::fs::{copy, create_dir_all};
 use std::io::prelude::*;
 use std::{
     collections::HashMap,
@@ -110,9 +112,9 @@ async fn organize(show_name: &str, mut episodes: Vec<Episode>, root: &Path, tmdb
     for episode in &episodes {
         println!("{}", episode.path.strip_prefix(&root).unwrap().display());
     }
-    if let Some(show) = choose_show(show_name, tmdb).await {
+    if let Some((show, show_name)) = choose_show(show_name, tmdb).await {
         for episode in episodes {
-            store(episode, show).await;
+            store(episode, show, &show_name).await;
         }
     }
 }
@@ -130,7 +132,7 @@ fn input(prompt: &str) -> io::Result<String> {
 }
 
 /// Ask user which show the videos belongs.
-async fn choose_show(show_name: &str, tmdb: &Client) -> Option<u32> {
+async fn choose_show(show_name: &str, tmdb: &Client) -> Option<(u32, String)> {
     let query = show_name
         .chars()
         .map(|c| if c.is_alphanumeric() { c } else { ' ' })
@@ -139,7 +141,7 @@ async fn choose_show(show_name: &str, tmdb: &Client) -> Option<u32> {
         .to_owned();
 
     println!();
-    let mut shows: Vec<u32> = Vec::new();
+    let mut shows: Vec<(u32, String)> = Vec::new();
     let result = tmdb
         .tv_search(&query, None)
         .await
@@ -154,21 +156,65 @@ async fn choose_show(show_name: &str, tmdb: &Client) -> Option<u32> {
             year,
             poster
         );
-        shows.push(show.id);
+        shows.push((show.id, show.original_name.to_string()));
     }
     let choice = input("\nQuel Série correspond ? ").unwrap();
     if choice == "skip" {
         None
     } else {
-        Some(shows[choice.parse::<usize>().unwrap() - 1])
+        Some(shows[choice.parse::<usize>().unwrap() - 1].clone())
     }
 }
 
 /// Copy an episode file to it's correct location.
-async fn store(episode: Episode, show: u32) {
-    // println!("{:?}", tmdb.tv_by_id(show, false, false).await.unwrap());
+async fn store(episode: Episode, show: u32, show_name: &str) -> Result<(), reqwest::Error> {
+    let info = tmdb::get_episode(show, episode.season, episode.number).await?;
+    let season = format!("{:02}", info.season_number);
+    let number = format!("{:02}", info.episode_number);
+    let name = if !info.name.is_empty() {
+        format!(" - {}", info.name)
+    } else {
+        String::from("")
+    };
+
+    let mut dest = dirs::video_dir().expect("could not find video dirs");
+    dest.push("Series");
+    dest.push(correct_file_name(show_name));
+    dest.push(format!("Season {}", season));
+    create_dir_all(&dest);
+    dest.push(correct_file_name(&format!(
+        "{} - s{}e{}{}.{}",
+        show_name,
+        season,
+        number,
+        name,
+        episode
+            .path
+            .extension()
+            .expect("no extension")
+            .to_str()
+            .expect("could not extract extension")
+    )));
+
     println!(
-        "{:?}",
-        tmdb::get_episode(show, episode.season, episode.number).await
+        "Copy {:?} to {:?}",
+        episode.path.file_name().unwrap(),
+        dest.file_name().unwrap()
     );
+    copy(episode.path, dest);
+
+    Ok(())
+}
+
+/// Correct file name to valid Windows name.
+fn correct_file_name(name: &str) -> String {
+    name.replace("<", "_")
+        .replace(">", "_")
+        .replace(":", "_")
+        .replace("\"", "_")
+        .replace("/", "_")
+        .replace("\\", "_")
+        .replace("|", "_")
+        .replace("?", "_")
+        .replace("*", "_")
 }
