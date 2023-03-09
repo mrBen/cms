@@ -59,7 +59,7 @@ jobs:
     - name: Build
       run: cargo build --release
     - name: Rename binary
-      run: move target/release/cms.exe cms-${{ github.ref_name }}-winodws.exe
+      run: move target/release/cms.exe cms-${{ github.ref_name }}-windows.exe
     - name: Upload as release asset
       uses: softprops/action-gh-release@v1
       with:
