@@ -33,14 +33,16 @@ jobs:
 
     if: startsWith(github.ref, 'refs/tags/')
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install MUSL toolchain
+      run: rustup target add x86_64-unknown-linux-musl
     - name: Build
-      run: cargo build --release
+      run: cargo build --target x86_64-unknown-linux-musl --release
     - name: Rename binary
-      run: mv target/release/cms cms-${{ github.ref_name }}-linux
+      run: mv target/x86_64-unknown-linux-musl/release/cms cms-${{ github.ref_name }}-linux
     - name: Upload as release asset
       uses: softprops/action-gh-release@v1
       with:
