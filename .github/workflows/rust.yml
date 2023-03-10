@@ -40,7 +40,7 @@ jobs:
     - name: Build
       run: cargo build --release
       env:
-        RUSTFLAGS: target-feature=+crt-static
+        RUSTFLAGS: -C target-feature=+crt-static
     - name: Rename binary
       run: mv target/x86_64-unknown-linux-musl/release/cms cms-${{ github.ref_name }}-linux
     - name: Upload as release asset
