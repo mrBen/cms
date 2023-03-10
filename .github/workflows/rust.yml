@@ -37,10 +37,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install MUSL toolchain
+      run: |
+        sudo apt update
+        sudo apt install musl-dev
+        rustup add target x86_64-unknown-linux-musl
     - name: Build
-      run: cargo build --release
-      env:
-        RUSTFLAGS: -C target-feature=+crt-static
+      run: cargo build --target x86_64-unknown-linux-musl --release
     - name: Rename binary
       run: mv target/x86_64-unknown-linux-musl/release/cms cms-${{ github.ref_name }}-linux
     - name: Upload as release asset
