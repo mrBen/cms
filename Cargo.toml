@@ -12,7 +12,6 @@ lazy_static = "1.4"
 openssl = { version = "0.10", features = ["vendored"] }
 regex = "1.7"
 reqwest = { version = "0.11", features = ["json"] }
-serde = "1.0"
-tmdb-async = "0.6"
+serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.26", features = ["full", "macros", "rt-multi-thread"] }
 walkdir = "2.3"
