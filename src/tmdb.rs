@@ -1,14 +1,12 @@
-use reqwest::{Error, Response};
+use reqwest::{get, Error, Response};
 use serde::Deserialize;
 
 const BASE_URL: &str = "https://api.themoviedb.org/3";
 const TMDB_API_KEY: &str = env!("TMDB_API_KEY");
 const IMAGE_BASE_URL: &str = "https://image.tmdb.org/t/p/";
 
-async fn request(endpoint: String) -> Response {
-    reqwest::get(format!("{BASE_URL}{endpoint}?api_key={TMDB_API_KEY}"))
-        .await
-        .unwrap()
+async fn request(endpoint: String) -> Result<Response, Error> {
+    get(format!("{BASE_URL}{endpoint}?api_key={TMDB_API_KEY}")).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,7 +42,7 @@ pub async fn get_episode(
     request(format!(
         "/tv/{tv_id}/season/{season_number}/episode/{episode_number}"
     ))
-    .await
+    .await?
     .json()
     .await
 }
