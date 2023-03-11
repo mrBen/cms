@@ -1,3 +1,4 @@
+use anyhow::Result;
 use clap::Parser;
 use dirs;
 use lazy_static::lazy_static;
@@ -9,9 +10,8 @@ use std::{
     io,
     path::{Path, PathBuf},
 };
-use walkdir::{Error, WalkDir};
+use walkdir::WalkDir;
 
-use crate::tmdb::{get_episode, poster, search_tv};
 mod tmdb;
 
 lazy_static! {
@@ -25,17 +25,16 @@ struct Episode {
     number: i32,
     path: PathBuf,
 }
-impl Episode {
-    fn from_path(path: &Path) -> Episode {
-        let caps = NUMBERING
-            .captures(path.file_name().unwrap().to_str().unwrap())
-            .unwrap();
 
-        Episode {
-            season: caps.get(1).unwrap().as_str().parse().unwrap(),
-            number: caps.get(2).unwrap().as_str().parse().unwrap(),
+impl Episode {
+    fn from_path(path: &Path) -> Option<Episode> {
+        let caps = NUMBERING.captures(path.file_name()?.to_str()?)?;
+
+        Some(Episode {
+            season: caps.get(1)?.as_str().parse().unwrap(),
+            number: caps.get(2)?.as_str().parse().unwrap(),
             path: PathBuf::from(path),
-        }
+        })
     }
 }
 
@@ -44,10 +43,14 @@ impl Episode {
 struct Cli {
     /// The folder to scan for videos
     folder: PathBuf,
+
+    /// Perform a trial run with no changes made
+    #[arg(short, long)]
+    dry_run: bool,
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<()> {
     let args = Cli::parse();
 
     let videos = list_videos(&args.folder);
@@ -67,15 +70,16 @@ async fn main() -> Result<(), Error> {
                 episodes.insert(show_name, Vec::new());
             }
 
-            episodes
-                .get_mut(show_name)
-                .unwrap()
-                .push(Episode::from_path(video.as_path()));
+            if let Some(episode) = Episode::from_path(video.as_path()) {
+                if let Some(show) = episodes.get_mut(show_name) {
+                    show.push(episode);
+                }
+            }
         }
     }
 
     for (show_name, episodes) in episodes {
-        organize(show_name, episodes, &args.folder).await;
+        organize(show_name, episodes, &args.folder, args.dry_run).await?;
     }
 
     Ok(())
@@ -103,17 +107,24 @@ fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
 }
 
 /// Move a show (list of videos) to proper location.
-async fn organize(show_name: &str, mut episodes: Vec<Episode>, root: &Path) {
+async fn organize(
+    show_name: &str,
+    mut episodes: Vec<Episode>,
+    root: &Path,
+    dry_run: bool,
+) -> Result<()> {
     println!();
     episodes.sort_by_key(|e| (e.season, e.number));
     for episode in &episodes {
-        println!("{}", episode.path.strip_prefix(&root).unwrap().display());
+        println!("{}", episode.path.strip_prefix(&root)?.display());
     }
-    if let Some((show, show_name)) = choose_show(show_name).await {
+    if let Some((show, show_name)) = choose_show(show_name).await? {
         for episode in episodes {
-            store(episode, show, &show_name).await;
+            store(episode, show, &show_name, dry_run).await?;
         }
     }
+
+    Ok(())
 }
 
 /// Mimic Python's `input(prompt)`.
@@ -129,7 +140,7 @@ fn input(prompt: &str) -> io::Result<String> {
 }
 
 /// Ask user which show the videos belongs.
-async fn choose_show(show_name: &str) -> Option<(i32, String)> {
+async fn choose_show(show_name: &str) -> Result<Option<(i32, String)>> {
     let query = show_name
         .chars()
         .map(|c| if c.is_alphanumeric() { c } else { ' ' })
@@ -139,10 +150,10 @@ async fn choose_show(show_name: &str) -> Option<(i32, String)> {
 
     println!();
     let mut shows: Vec<(i32, String)> = Vec::new();
-    let results = search_tv(query).await.expect("reqwest failed");
-    for (i, show) in results.iter().enumerate() {
+    let results = tmdb::search_tv(query).await?;
+    for (i, show) in results.results.iter().enumerate() {
         let year = &show.first_air_date;
-        let poster_path = poster(&show.poster_path);
+        let poster_path = tmdb::poster(&show.poster_path);
         println!(
             "{}. {} ({}) {}",
             i + 1,
@@ -152,17 +163,17 @@ async fn choose_show(show_name: &str) -> Option<(i32, String)> {
         );
         shows.push((show.id, show.original_name.to_string()));
     }
-    let choice = input("\nQuel Série correspond ? ").unwrap();
+    let choice = input("\nQuel Série correspond ? ")?;
     if choice == "skip" {
-        None
+        Ok(None)
     } else {
-        Some(shows[choice.parse::<usize>().unwrap() - 1].clone())
+        Ok(Some(shows[choice.parse::<usize>()? - 1].clone()))
     }
 }
 
 /// Copy an episode file to it's correct location.
-async fn store(episode: Episode, show_id: i32, show_name: &str) -> Result<(), reqwest::Error> {
-    let info = get_episode(show_id, episode.season, episode.number).await?;
+async fn store(episode: Episode, show_id: i32, show_name: &str, dry_run: bool) -> Result<()> {
+    let info = tmdb::get_episode(show_id, episode.season, episode.number).await?;
     let season = format!("{:02}", info.season_number);
     let number = format!("{:02}", info.episode_number);
     let name = if !info.name.is_empty() {
@@ -171,23 +182,18 @@ async fn store(episode: Episode, show_id: i32, show_name: &str) -> Result<(), re
         String::from("")
     };
 
-    let mut dest = dirs::video_dir().expect("could not find video dirs");
+    let mut dest = dirs::video_dir().unwrap();
     dest.push("Series");
     dest.push(correct_file_name(show_name));
     dest.push(format!("Season {}", season));
-    create_dir_all(&dest);
+    create_dir_all(&dest)?;
     dest.push(correct_file_name(&format!(
         "{} - s{}e{}{}.{}",
         show_name,
         season,
         number,
         name,
-        episode
-            .path
-            .extension()
-            .expect("no extension")
-            .to_str()
-            .expect("could not extract extension")
+        episode.path.extension().unwrap().to_str().unwrap()
     )));
 
     println!(
@@ -195,7 +201,9 @@ async fn store(episode: Episode, show_id: i32, show_name: &str) -> Result<(), re
         episode.path.file_name().unwrap(),
         dest.file_name().unwrap()
     );
-    copy(episode.path, dest);
+    if !dry_run {
+        copy(episode.path, dest)?;
+    }
 
     Ok(())
 }

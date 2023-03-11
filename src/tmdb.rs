@@ -1,31 +1,33 @@
-use reqwest::{Error, Response};
+use reqwest::{get, Error, Response};
 use serde::Deserialize;
 
 const BASE_URL: &str = "https://api.themoviedb.org/3";
 const TMDB_API_KEY: &str = env!("TMDB_API_KEY");
 const IMAGE_BASE_URL: &str = "https://image.tmdb.org/t/p/";
 
-async fn request(endpoint: String) -> Response {
-    reqwest::get(format!("{BASE_URL}{endpoint}?api_key={TMDB_API_KEY}"))
-        .await
-        .expect("reqwest failed")
+async fn request(endpoint: String) -> Result<Response, Error> {
+    get(format!("{BASE_URL}{endpoint}?api_key={TMDB_API_KEY}")).await
+}
+
+#[derive(Deserialize)]
+pub struct Shows {
+    pub results: Vec<Show>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct TvResult {
+pub struct Show {
     pub poster_path: String,
     pub id: i32,
     pub first_air_date: String,
     pub original_name: String,
 }
 
-pub async fn search_tv(query: String) -> Result<Vec<TvResult>, Error> {
+pub async fn search_tv(query: String) -> Result<Shows, Error> {
     let endpoint = "/search/tv";
     reqwest::get(format!(
         "{BASE_URL}{endpoint}?api_key={TMDB_API_KEY}&query={query}"
     ))
-    .await
-    .expect("reqwest failed")
+    .await?
     .json()
     .await
 }
@@ -45,7 +47,7 @@ pub async fn get_episode(
     request(format!(
         "/tv/{tv_id}/season/{season_number}/episode/{episode_number}"
     ))
-    .await
+    .await?
     .json()
     .await
 }
