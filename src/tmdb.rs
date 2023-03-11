@@ -8,7 +8,7 @@ const IMAGE_BASE_URL: &str = "https://image.tmdb.org/t/p/";
 async fn request(endpoint: String) -> Response {
     reqwest::get(format!("{BASE_URL}{endpoint}?api_key={TMDB_API_KEY}"))
         .await
-        .expect("reqwest failed")
+        .unwrap()
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,8 +24,7 @@ pub async fn search_tv(query: String) -> Result<Vec<TvResult>, Error> {
     reqwest::get(format!(
         "{BASE_URL}{endpoint}?api_key={TMDB_API_KEY}&query={query}"
     ))
-    .await
-    .expect("reqwest failed")
+    .await?
     .json()
     .await
 }

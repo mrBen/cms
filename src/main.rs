@@ -1,3 +1,4 @@
+use crate::tmdb::{get_episode, poster, search_tv};
 use clap::Parser;
 use dirs;
 use lazy_static::lazy_static;
@@ -11,7 +12,6 @@ use std::{
 };
 use walkdir::{Error, WalkDir};
 
-use crate::tmdb::{get_episode, poster, search_tv};
 mod tmdb;
 
 lazy_static! {
@@ -119,7 +119,7 @@ async fn organize(show_name: &str, mut episodes: Vec<Episode>, root: &Path) {
 /// Mimic Python's `input(prompt)`.
 fn input(prompt: &str) -> io::Result<String> {
     print!("{}", prompt);
-    io::stdout().flush()?;
+    io::stdout().flush().unwrap();
     io::stdin()
         .lock()
         .lines()
@@ -139,7 +139,7 @@ async fn choose_show(show_name: &str) -> Option<(i32, String)> {
 
     println!();
     let mut shows: Vec<(i32, String)> = Vec::new();
-    let results = search_tv(query).await.expect("reqwest failed");
+    let results = search_tv(query).await.unwrap();
     for (i, show) in results.iter().enumerate() {
         let year = &show.first_air_date;
         let poster_path = poster(&show.poster_path);
@@ -171,7 +171,7 @@ async fn store(episode: Episode, show_id: i32, show_name: &str) -> Result<(), re
         String::from("")
     };
 
-    let mut dest = dirs::video_dir().expect("could not find video dirs");
+    let mut dest = dirs::video_dir().unwrap();
     dest.push("Series");
     dest.push(correct_file_name(show_name));
     dest.push(format!("Season {}", season));
@@ -182,12 +182,7 @@ async fn store(episode: Episode, show_id: i32, show_name: &str) -> Result<(), re
         season,
         number,
         name,
-        episode
-            .path
-            .extension()
-            .expect("no extension")
-            .to_str()
-            .expect("could not extract extension")
+        episode.path.extension().unwrap().to_str().unwrap()
     )));
 
     println!(
