@@ -9,15 +9,14 @@ use std::{
     io,
     path::{Path, PathBuf},
 };
-use tmdb_async::Client;
 use walkdir::{Error, WalkDir};
+
+use crate::tmdb::{get_episode, poster, search_tv};
 mod tmdb;
 
 lazy_static! {
     static ref NUMBERING: Regex = Regex::new(r"[Ss](\d+)[Ee](\d+)").unwrap();
 }
-
-const TMDB_API_KEY: &str = env!("TMDB_API_KEY");
 
 /// Store an episode video file.
 #[derive(Debug)]
@@ -75,10 +74,8 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    let tmdb = Client::new(TMDB_API_KEY.to_string());
-
     for (show_name, episodes) in episodes {
-        organize(show_name, episodes, &args.folder, &tmdb).await;
+        organize(show_name, episodes, &args.folder).await;
     }
 
     Ok(())
@@ -106,13 +103,13 @@ fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
 }
 
 /// Move a show (list of videos) to proper location.
-async fn organize(show_name: &str, mut episodes: Vec<Episode>, root: &Path, tmdb: &Client) {
+async fn organize(show_name: &str, mut episodes: Vec<Episode>, root: &Path) {
     println!();
     episodes.sort_by_key(|e| (e.season, e.number));
     for episode in &episodes {
         println!("{}", episode.path.strip_prefix(&root).unwrap().display());
     }
-    if let Some((show, show_name)) = choose_show(show_name, tmdb).await {
+    if let Some((show, show_name)) = choose_show(show_name).await {
         for episode in episodes {
             store(episode, show, &show_name).await;
         }
@@ -132,7 +129,7 @@ fn input(prompt: &str) -> io::Result<String> {
 }
 
 /// Ask user which show the videos belongs.
-async fn choose_show(show_name: &str, tmdb: &Client) -> Option<(u32, String)> {
+async fn choose_show(show_name: &str) -> Option<(i32, String)> {
     let query = show_name
         .chars()
         .map(|c| if c.is_alphanumeric() { c } else { ' ' })
@@ -141,20 +138,17 @@ async fn choose_show(show_name: &str, tmdb: &Client) -> Option<(u32, String)> {
         .to_owned();
 
     println!();
-    let mut shows: Vec<(u32, String)> = Vec::new();
-    let result = tmdb
-        .tv_search(&query, None)
-        .await
-        .expect("API called failed");
-    for (i, show) in result.results.iter().enumerate() {
-        let year = show.first_air_date;
-        let poster = show.poster_path.as_ref().expect("no poster");
+    let mut shows: Vec<(i32, String)> = Vec::new();
+    let results = search_tv(query).await.expect("reqwest failed");
+    for (i, show) in results.iter().enumerate() {
+        let year = &show.first_air_date;
+        let poster_path = poster(&show.poster_path);
         println!(
-            "{}. {} ({}) https://image.tmdb.org/t/p/w500{}",
+            "{}. {} ({}) {}",
             i + 1,
             show.original_name,
             year,
-            poster
+            poster_path
         );
         shows.push((show.id, show.original_name.to_string()));
     }
@@ -167,8 +161,8 @@ async fn choose_show(show_name: &str, tmdb: &Client) -> Option<(u32, String)> {
 }
 
 /// Copy an episode file to it's correct location.
-async fn store(episode: Episode, show: u32, show_name: &str) -> Result<(), reqwest::Error> {
-    let info = tmdb::get_episode(show, episode.season, episode.number).await?;
+async fn store(episode: Episode, show_id: i32, show_name: &str) -> Result<(), reqwest::Error> {
+    let info = get_episode(show_id, episode.season, episode.number).await?;
     let season = format!("{:02}", info.season_number);
     let number = format!("{:02}", info.episode_number);
     let name = if !info.name.is_empty() {
