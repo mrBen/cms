@@ -43,6 +43,10 @@ impl Episode {
 struct Cli {
     /// The folder to scan for videos
     folder: PathBuf,
+
+    /// Perform a trial run with no changes made
+    #[arg(short, long)]
+    dry_run: bool,
 }
 
 #[tokio::main]
@@ -75,7 +79,7 @@ async fn main() -> Result<()> {
     }
 
     for (show_name, episodes) in episodes {
-        organize(show_name, episodes, &args.folder).await?;
+        organize(show_name, episodes, &args.folder, args.dry_run).await?;
     }
 
     Ok(())
@@ -103,7 +107,12 @@ fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
 }
 
 /// Move a show (list of videos) to proper location.
-async fn organize(show_name: &str, mut episodes: Vec<Episode>, root: &Path) -> Result<()> {
+async fn organize(
+    show_name: &str,
+    mut episodes: Vec<Episode>,
+    root: &Path,
+    dry_run: bool,
+) -> Result<()> {
     println!();
     episodes.sort_by_key(|e| (e.season, e.number));
     for episode in &episodes {
@@ -111,7 +120,7 @@ async fn organize(show_name: &str, mut episodes: Vec<Episode>, root: &Path) -> R
     }
     if let Some((show, show_name)) = choose_show(show_name).await? {
         for episode in episodes {
-            store(episode, show, &show_name).await?;
+            store(episode, show, &show_name, dry_run).await?;
         }
     }
 
@@ -163,7 +172,7 @@ async fn choose_show(show_name: &str) -> Result<Option<(i32, String)>> {
 }
 
 /// Copy an episode file to it's correct location.
-async fn store(episode: Episode, show_id: i32, show_name: &str) -> Result<()> {
+async fn store(episode: Episode, show_id: i32, show_name: &str, dry_run: bool) -> Result<()> {
     let info = tmdb::get_episode(show_id, episode.season, episode.number).await?;
     let season = format!("{:02}", info.season_number);
     let number = format!("{:02}", info.episode_number);
@@ -192,7 +201,9 @@ async fn store(episode: Episode, show_id: i32, show_name: &str) -> Result<()> {
         episode.path.file_name().unwrap(),
         dest.file_name().unwrap()
     );
-    copy(episode.path, dest)?;
+    if !dry_run {
+        copy(episode.path, dest)?;
+    }
 
     Ok(())
 }
