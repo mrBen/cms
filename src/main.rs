@@ -150,7 +150,7 @@ async fn choose_show(show_name: &str) -> Result<Option<(i32, String)>> {
 
     println!();
     let mut shows: Vec<(i32, String)> = Vec::new();
-    let results = tmdb::search::search_tv_shows(query).await?;
+    let results = tmdb::search::search_tv_shows(&query).await?;
     for (i, show) in results.results.iter().enumerate() {
         let year = &show.first_air_date;
         let poster_path = tmdb::poster(&show.poster_path);

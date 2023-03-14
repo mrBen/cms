@@ -14,9 +14,10 @@ pub async fn get_details(
     season_number: i32,
     episode_number: i32,
 ) -> Result<Episode, Error> {
-    get(format!(
-        "/tv/{tv_id}/season/{season_number}/episode/{episode_number}"
-    ))
+    get(
+        &format!("/tv/{tv_id}/season/{season_number}/episode/{episode_number}"),
+        vec![],
+    )
     .await?
     .json()
     .await

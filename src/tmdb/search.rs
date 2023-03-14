@@ -1,4 +1,4 @@
-use crate::tmdb::{BASE_URL, TMDB_API_KEY};
+use crate::tmdb::get;
 use reqwest::Error;
 use serde::Deserialize;
 
@@ -15,12 +15,9 @@ pub struct Show {
     pub original_name: String,
 }
 
-pub async fn search_tv_shows(query: String) -> Result<Shows, Error> {
-    let endpoint = "/search/tv";
-    reqwest::get(format!(
-        "{BASE_URL}{endpoint}?api_key={TMDB_API_KEY}&query={query}"
-    ))
-    .await?
-    .json()
-    .await
+pub async fn search_tv_shows(query: &str) -> Result<Shows, Error> {
+    get("/search/tv", vec![("query", query)])
+        .await?
+        .json()
+        .await
 }
