@@ -150,7 +150,7 @@ async fn choose_show(show_name: &str) -> Result<Option<(i32, String)>> {
 
     println!();
     let mut shows: Vec<(i32, String)> = Vec::new();
-    let results = tmdb::search_tv(query).await?;
+    let results = tmdb::search::search_tv_shows(&query).await?;
     for (i, show) in results.results.iter().enumerate() {
         let year = &show.first_air_date;
         let poster_path = tmdb::poster(&show.poster_path);
@@ -173,7 +173,7 @@ async fn choose_show(show_name: &str) -> Result<Option<(i32, String)>> {
 
 /// Copy an episode file to it's correct location.
 async fn store(episode: Episode, show_id: i32, show_name: &str, dry_run: bool) -> Result<()> {
-    let info = tmdb::get_episode(show_id, episode.season, episode.number).await?;
+    let info = tmdb::tv_episodes::get_details(show_id, episode.season, episode.number).await?;
     let season = format!("{:02}", info.season_number);
     let number = format!("{:02}", info.episode_number);
     let name = if !info.name.is_empty() {
