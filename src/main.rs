@@ -1,12 +1,13 @@
+#![warn(clippy::pedantic)]
+
 use anyhow::Result;
 use clap::Parser;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::fs::{copy, create_dir_all};
-use std::io::prelude::*;
 use std::{
     collections::HashMap,
-    io,
+    fs::{copy, create_dir_all},
+    io::{self, prelude::*},
     path::{Path, PathBuf},
 };
 use walkdir::WalkDir;
@@ -26,10 +27,10 @@ struct Episode {
 }
 
 impl Episode {
-    fn from_path(path: &Path) -> Option<Episode> {
+    fn from_path(path: &Path) -> Option<Self> {
         let caps = NUMBERING.captures(path.file_name()?.to_str()?)?;
 
-        Some(Episode {
+        Some(Self {
             season: caps.get(1)?.as_str().parse().unwrap(),
             number: caps.get(2)?.as_str().parse().unwrap(),
             path: PathBuf::from(path),
@@ -88,12 +89,12 @@ async fn main() -> Result<()> {
 fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
     let mut videos = Vec::new();
 
-    for entry in WalkDir::new(folder).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(folder).into_iter().filter_map(Result::ok) {
         if entry.file_type().is_file() {
             // TODO: use `mime_classifier`
             if let Some(ext) = entry.path().extension() {
                 if ext == "mp4" || ext == "mkv" {
-                    videos.push(entry.into_path())
+                    videos.push(entry.into_path());
                 }
             }
         }
@@ -125,7 +126,7 @@ async fn organize(
 
 /// Mimic Python's `input(prompt)`.
 fn input(prompt: &str) -> io::Result<String> {
-    print!("{}", prompt);
+    print!("{prompt}");
     io::stdout().flush()?;
     io::stdin()
         .lock()
@@ -146,7 +147,7 @@ async fn choose_show(show_name: &str) -> Result<Option<(i32, String)>> {
 
     println!();
     let mut shows: Vec<(i32, String)> = Vec::new();
-    let results = tmdb::search::search_tv_shows(&query).await?;
+    let results = tmdb::search::tv_shows(&query).await?;
     for (i, show) in results.results.iter().enumerate() {
         let year = &show.first_air_date;
         let poster_path = tmdb::poster(&show.poster_path);
@@ -172,16 +173,16 @@ async fn store(episode: Episode, show_id: i32, show_name: &str, dry_run: bool) -
     let info = tmdb::tv_episodes::get_details(show_id, episode.season, episode.number).await?;
     let season = format!("{:02}", info.season_number);
     let number = format!("{:02}", info.episode_number);
-    let name = if !info.name.is_empty() {
-        format!(" - {}", info.name)
+    let name = if info.name.is_empty() {
+        String::new()
     } else {
-        String::from("")
+        format!(" - {}", info.name)
     };
 
     let mut dest = dirs::video_dir().unwrap();
     dest.push("Series");
     dest.push(correct_file_name(show_name));
-    dest.push(format!("Season {}", season));
+    dest.push(format!("Season {season}"));
     create_dir_all(&dest)?;
     dest.push(correct_file_name(&format!(
         "{} - s{}e{}{}.{}",

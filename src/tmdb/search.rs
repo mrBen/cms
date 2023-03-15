@@ -15,7 +15,7 @@ pub struct Show {
     pub original_name: String,
 }
 
-pub async fn search_tv_shows(query: &str) -> Result<Shows, Error> {
+pub async fn tv_shows(query: &str) -> Result<Shows, Error> {
     get("/search/tv", vec![("query", query)])
         .await?
         .json()
