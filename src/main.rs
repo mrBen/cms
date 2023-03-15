@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use dirs;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::fs::{copy, create_dir_all};
@@ -64,7 +63,7 @@ async fn main() -> Result<()> {
                 .collect::<Vec<&str>>()
                 .first()
                 .unwrap()
-                .clone();
+                .to_owned();
 
             if !episodes.contains_key(show_name) {
                 episodes.insert(show_name, Vec::new());
@@ -92,13 +91,10 @@ fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
     for entry in WalkDir::new(folder).into_iter().filter_map(|e| e.ok()) {
         if entry.file_type().is_file() {
             // TODO: use `mime_classifier`
-            match entry.path().extension() {
-                Some(ext) => {
-                    if ext == "mp4" || ext == "mkv" {
-                        videos.push(entry.into_path())
-                    }
+            if let Some(ext) = entry.path().extension() {
+                if ext == "mp4" || ext == "mkv" {
+                    videos.push(entry.into_path())
                 }
-                None => {}
             }
         }
     }
@@ -116,7 +112,7 @@ async fn organize(
     println!();
     episodes.sort_by_key(|e| (e.season, e.number));
     for episode in &episodes {
-        println!("{}", episode.path.strip_prefix(&root)?.display());
+        println!("{}", episode.path.strip_prefix(root)?.display());
     }
     if let Some((show, show_name)) = choose_show(show_name).await? {
         for episode in episodes {
@@ -210,13 +206,5 @@ async fn store(episode: Episode, show_id: i32, show_name: &str, dry_run: bool) -
 
 /// Correct file name to valid Windows name.
 fn correct_file_name(name: &str) -> String {
-    name.replace("<", "_")
-        .replace(">", "_")
-        .replace(":", "_")
-        .replace("\"", "_")
-        .replace("/", "_")
-        .replace("\\", "_")
-        .replace("|", "_")
-        .replace("?", "_")
-        .replace("*", "_")
+    name.replace(['<', '>', ':', '"', '/', '\\', '|', '?', '*'], "_")
 }
