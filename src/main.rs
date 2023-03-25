@@ -1,15 +1,16 @@
 #![warn(clippy::pedantic)]
 
+mod cms;
+mod tmdb;
+
 use anyhow::Result;
 use clap::Parser;
+use cms::shows;
 use std::{
     fs::{copy, create_dir_all},
     io::{self, prelude::*},
     path::{Path, PathBuf},
 };
-
-mod cms;
-mod tmdb;
 
 /// Organize your series and movies.
 #[derive(Parser)]
@@ -40,14 +41,14 @@ async fn main() -> Result<()> {
 /// Move a show (list of videos) to proper location.
 async fn organize(
     show_name: &str,
-    mut episodes: Vec<cms::Episode>,
+    mut episodes: Vec<shows::Episode>,
     root: &Path,
     dry_run: bool,
 ) -> Result<()> {
     println!();
     episodes.sort_by_key(|e| (e.season, e.number));
     for episode in &episodes {
-        println!("{}", episode.path.strip_prefix(root)?.display());
+        println!("{}", episode.src.strip_prefix(root)?.display());
     }
     if let Some((show, show_name)) = choose_show(show_name).await? {
         for episode in episodes {
@@ -103,7 +104,12 @@ async fn choose_show(show_name: &str) -> Result<Option<(i32, String)>> {
 }
 
 /// Copy an episode file to it's correct location.
-async fn store(episode: cms::Episode, show_id: i32, show_name: &str, dry_run: bool) -> Result<()> {
+async fn store(
+    episode: shows::Episode,
+    show_id: i32,
+    show_name: &str,
+    dry_run: bool,
+) -> Result<()> {
     let info = tmdb::tv_episodes::get_details(show_id, episode.season, episode.number).await?;
     let season = format!("{:02}", info.season_number);
     let number = format!("{:02}", info.episode_number);
@@ -124,16 +130,16 @@ async fn store(episode: cms::Episode, show_id: i32, show_name: &str, dry_run: bo
         season,
         number,
         name,
-        episode.path.extension().unwrap().to_str().unwrap()
+        episode.src.extension().unwrap().to_str().unwrap()
     )));
 
     println!(
         "Copy {:?} to {:?}",
-        episode.path.file_name().unwrap(),
+        episode.src.file_name().unwrap(),
         dest.file_name().unwrap()
     );
     if !dry_run {
-        copy(episode.path, dest)?;
+        copy(episode.src, dest)?;
     }
 
     Ok(())

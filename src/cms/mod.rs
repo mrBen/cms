@@ -1,9 +1,9 @@
+mod movies;
+pub mod shows;
+
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::PathBuf};
 use walkdir::WalkDir;
 
 lazy_static! {
@@ -28,27 +28,7 @@ pub fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
     videos
 }
 
-/// Store an episode video file.
-#[derive(Debug)]
-pub struct Episode {
-    pub season: i32,
-    pub number: i32,
-    pub path: PathBuf,
-}
-
-impl Episode {
-    pub fn from_path(path: &Path) -> Option<Self> {
-        let caps = NUMBERING.captures(path.file_name()?.to_str()?)?;
-
-        Some(Self {
-            season: caps.get(1)?.as_str().parse().unwrap(),
-            number: caps.get(2)?.as_str().parse().unwrap(),
-            path: PathBuf::from(path),
-        })
-    }
-}
-
-pub fn pre_sort(videos: &[PathBuf]) -> HashMap<String, Vec<Episode>> {
+pub fn pre_sort(videos: &[PathBuf]) -> HashMap<String, Vec<shows::Episode>> {
     let mut episodes = HashMap::new();
     for video in videos {
         let file_name = video.file_name().unwrap().to_str().unwrap();
@@ -65,10 +45,9 @@ pub fn pre_sort(videos: &[PathBuf]) -> HashMap<String, Vec<Episode>> {
                 episodes.insert(show_name.clone(), Vec::new());
             }
 
-            if let Some(episode) = Episode::from_path(video.as_path()) {
-                if let Some(show) = episodes.get_mut(&show_name) {
-                    show.push(episode);
-                }
+            let episode = shows::Episode::from(video.as_path());
+            if let Some(show) = episodes.get_mut(&show_name) {
+                show.push(episode);
             }
         }
     }
