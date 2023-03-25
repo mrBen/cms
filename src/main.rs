@@ -2,21 +2,14 @@
 
 use anyhow::Result;
 use clap::Parser;
-use lazy_static::lazy_static;
-use regex::Regex;
 use std::{
     fs::{copy, create_dir_all},
     io::{self, prelude::*},
     path::{Path, PathBuf},
 };
-use walkdir::WalkDir;
 
 mod cms;
 mod tmdb;
-
-lazy_static! {
-    static ref NUMBERING: Regex = Regex::new(r"[Ss](\d+)[Ee](\d+)").unwrap();
-}
 
 /// Organize your series and movies.
 #[derive(Parser)]
@@ -33,7 +26,7 @@ struct Cli {
 async fn main() -> Result<()> {
     let args = Cli::parse();
 
-    let videos = list_videos(&args.folder);
+    let videos = cms::list_videos(&args.folder);
 
     let episodes = cms::pre_sort(&videos);
 
@@ -42,24 +35,6 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
-}
-
-/// Recursively list all video files in a directory.
-fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
-    let mut videos = Vec::new();
-
-    for entry in WalkDir::new(folder).into_iter().filter_map(Result::ok) {
-        if entry.file_type().is_file() {
-            // TODO: use `mime_classifier`
-            if let Some(ext) = entry.path().extension() {
-                if ext == "mp4" || ext == "mkv" {
-                    videos.push(entry.into_path());
-                }
-            }
-        }
-    }
-
-    videos
 }
 
 /// Move a show (list of videos) to proper location.

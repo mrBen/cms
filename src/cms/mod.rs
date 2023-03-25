@@ -1,9 +1,32 @@
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
+use walkdir::WalkDir;
 
-use crate::NUMBERING;
+lazy_static! {
+    static ref NUMBERING: Regex = Regex::new(r"[Ss](\d+)[Ee](\d+)").unwrap();
+}
+
+/// Recursively list all video files in a directory.
+pub fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
+    let mut videos = Vec::new();
+
+    for entry in WalkDir::new(folder).into_iter().filter_map(Result::ok) {
+        if entry.file_type().is_file() {
+            // TODO: use `mime_classifier`
+            if let Some(ext) = entry.path().extension() {
+                if ext == "mp4" || ext == "mkv" {
+                    videos.push(entry.into_path());
+                }
+            }
+        }
+    }
+
+    videos
+}
 
 /// Store an episode video file.
 #[derive(Debug)]
