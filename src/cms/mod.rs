@@ -28,11 +28,15 @@ pub fn list_videos(folder: &PathBuf) -> Vec<PathBuf> {
     videos
 }
 
-pub fn pre_sort(videos: &[PathBuf]) -> HashMap<String, Vec<shows::Episode>> {
+pub fn pre_sort(videos: &[PathBuf]) -> (Vec<movies::Film>, HashMap<String, Vec<shows::Episode>>) {
+    let mut films = Vec::new();
     let mut episodes = HashMap::new();
+
     for video in videos {
         let file_name = video.file_name().unwrap().to_str().unwrap();
+
         if NUMBERING.is_match(file_name) {
+            // Episode
             let show_name = NUMBERING
                 .split(file_name)
                 .collect::<Vec<&str>>()
@@ -49,7 +53,10 @@ pub fn pre_sort(videos: &[PathBuf]) -> HashMap<String, Vec<shows::Episode>> {
             if let Some(show) = episodes.get_mut(&show_name) {
                 show.push(episode);
             }
+        } else {
+            // Film
+            films.push(movies::Film::from(video.as_path()));
         }
     }
-    episodes
+    (films, episodes)
 }

@@ -21,6 +21,14 @@ struct Cli {
     /// Perform a trial run with no changes made
     #[arg(short, long)]
     dry_run: bool,
+
+    /// Only process movies
+    #[arg(short, long)]
+    movies: bool,
+
+    /// Only process shows
+    #[arg(short, long)]
+    shows: bool,
 }
 
 #[tokio::main]
@@ -29,10 +37,20 @@ async fn main() -> Result<()> {
 
     let videos = cms::list_videos(&args.folder);
 
-    let episodes = cms::pre_sort(&videos);
+    let (films, episodes) = cms::pre_sort(&videos);
 
-    for (show_name, episodes) in episodes {
-        organize(&show_name, episodes, &args.folder, args.dry_run).await?;
+    if args.movies || !args.shows {
+        for film in films {
+            if let Some(file) = film.src.file_name() {
+                println!("{file:?}");
+            }
+        }
+    }
+
+    if args.shows || !args.movies {
+        for (show_name, episodes) in episodes {
+            organize(&show_name, episodes, &args.folder, args.dry_run).await?;
+        }
     }
 
     Ok(())
