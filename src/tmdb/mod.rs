@@ -12,6 +12,7 @@ async fn get(endpoint: &str, mut params: Vec<(&str, &str)>) -> Result<Response, 
     params.push(("api_key", env!("TMDB_API_KEY")));
     CLIENT
         .get(format!("https://api.themoviedb.org/3{endpoint}"))
+        .header("Content-Type", "application/json; charset=UTF-8")
         .query(&params)
         .send()
         .await

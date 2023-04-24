@@ -3,6 +3,27 @@ use reqwest::Error;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
+pub struct Movies {
+    pub results: Vec<Movie>,
+}
+
+#[derive(Deserialize)]
+pub struct Movie {
+    pub poster_path: String,
+    pub release_date: String,
+    pub id: i32,
+    pub original_title: String,
+    pub title: String,
+}
+
+pub async fn movies(query: &str) -> Result<Movies, Error> {
+    get("/search/movie", vec![("query", query)])
+        .await?
+        .json()
+        .await
+}
+
+#[derive(Deserialize)]
 pub struct Shows {
     pub results: Vec<Show>,
 }

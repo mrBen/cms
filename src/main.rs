@@ -6,6 +6,7 @@ mod tmdb;
 use anyhow::Result;
 use clap::Parser;
 use cms::shows;
+use regex::Regex;
 use std::{
     fs::{copy, create_dir_all},
     io::{self, prelude::*},
@@ -42,7 +43,7 @@ async fn main() -> Result<()> {
     if args.movies || !args.shows {
         for film in films {
             if let Some(file) = film.src.file_name() {
-                println!("{file:?}");
+                println!("{:?}", choose_movie(file.to_str().unwrap()).await?);
             }
         }
     }
@@ -87,6 +88,46 @@ fn input(prompt: &str) -> io::Result<String> {
         .next()
         .unwrap()
         .map(|x| x.trim_end().to_owned())
+}
+
+/// Ask user which show the videos belongs.
+async fn choose_movie(filename: &str) -> Result<Option<(i32, String)>> {
+    let year = Regex::new(r"(?:19|20)\d{2}").unwrap(); // year between 1900 and 2099
+
+    let query = year
+        .split(filename)
+        .collect::<Vec<&str>>()
+        .first()
+        .unwrap()
+        .to_owned()
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { ' ' })
+        .collect::<String>()
+        .trim()
+        .to_owned();
+
+    println!();
+    let mut movies: Vec<(i32, String)> = Vec::new();
+    let results = tmdb::search::movies(&query).await?;
+    for (i, movie) in results.results.iter().enumerate() {
+        let year = &movie.release_date;
+        let poster_path = tmdb::poster(&movie.poster_path);
+        println!(
+            "{}. {} ({}) {} ({})",
+            i + 1,
+            movie.title,
+            year,
+            poster_path,
+            movie.original_title
+        );
+        movies.push((movie.id, movie.title.to_string()));
+    }
+    let choice = input("\nQuel film correspond ? ")?;
+    if choice == "skip" {
+        Ok(None)
+    } else {
+        Ok(Some(movies[choice.parse::<usize>()? - 1].clone()))
+    }
 }
 
 /// Ask user which show the videos belongs.
