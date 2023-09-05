@@ -9,7 +9,7 @@ pub struct Movies {
 
 #[derive(Deserialize)]
 pub struct Movie {
-    pub poster_path: String,
+    pub poster_path: Option<String>,
     pub release_date: String,
     pub id: i32,
     pub original_title: String,
@@ -17,7 +17,7 @@ pub struct Movie {
 }
 
 pub async fn movies(query: &str) -> Result<Movies, Error> {
-    get("/search/movie", vec![("query", query)])
+    get("/search/movie", &[("query", query)])
         .await?
         .json()
         .await
@@ -37,8 +37,5 @@ pub struct Show {
 }
 
 pub async fn tv_shows(query: &str) -> Result<Shows, Error> {
-    get("/search/tv", vec![("query", query)])
-        .await?
-        .json()
-        .await
+    get("/search/tv", &[("query", query)]).await?.json().await
 }

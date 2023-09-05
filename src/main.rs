@@ -107,11 +107,16 @@ async fn choose_movie(filename: &str) -> Result<Option<(i32, String)>> {
         .to_owned();
 
     println!();
+    println!("{filename}");
+    println!();
     let mut movies: Vec<(i32, String)> = Vec::new();
     let results = tmdb::search::movies(&query).await?;
     for (i, movie) in results.results.iter().enumerate() {
         let year = &movie.release_date;
-        let poster_path = tmdb::poster(&movie.poster_path);
+        let poster_path = match &movie.poster_path {
+            Some(path) => tmdb::poster(path),
+            None => String::new(),
+        };
         println!(
             "{}. {} ({}) {} ({})",
             i + 1,

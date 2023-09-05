@@ -8,10 +8,11 @@ lazy_static! {
     static ref CLIENT: Client = reqwest::Client::new();
 }
 
-async fn get(endpoint: &str, mut params: Vec<(&str, &str)>) -> Result<Response, Error> {
-    params.push(("api_key", env!("TMDB_API_KEY")));
+async fn get(endpoint: &str, params: &[(&str, &str)]) -> Result<Response, Error> {
+    let token = env!("TMDB_BEARER_TOKEN");
     CLIENT
         .get(format!("https://api.themoviedb.org/3{endpoint}"))
+        .header("Authorization", format!("Bearer {token}"))
         .header("Content-Type", "application/json; charset=UTF-8")
         .query(&params)
         .send()
